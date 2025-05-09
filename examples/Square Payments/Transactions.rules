@@ -1,0 +1,21 @@
+# test comment
+skip 1
+
+date-format %Y-%m-%d
+
+fields date, time, , gross, discounts, service charges, nest sales, gift card, tax, tip, partial refund, total, source, card, method, cash, square gift card, other tender, other tender type, tender note, fees, net total, Transaction ID, Payment ID, card brand, pan suffix, device name, staff name, staff id, details, description, event type, location, dining option, customer id, customer name, device nickname
+
+account1 Income:Sales
+
+if %method N/A
+ account2 Assets:Current Assets:Petty Cash
+ amount1 (%cash)
+ amount2 %cash
+
+if ! %method N/A
+ amount1 -%total
+ account2 Assets:Current Assets:Square:Cash
+ amount2 %net total
+ account3 Expenses:Payment Fees:Square
+ amount3 -%fees
+

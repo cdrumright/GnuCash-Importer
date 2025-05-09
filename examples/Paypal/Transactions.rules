@@ -1,0 +1,23 @@
+# Skip the header row
+skip 1
+
+date-format %m/%d/%Y
+
+fields date, Time, TimeZone, Name, Type, Status, Currency, Gross, Fee, Net, From Email Address, To Email Address, Transaction ID, Shipping Address, Address Status, Item Title, Item ID, Shipping and Handling Amount, Insurance Amount, Sales Tax, Option 1 Name, Option 1 Value, Option 2 Name, Option 2 Value, Reference Txn ID, Invoice Number, Custom Number, Quantity, Receipt ID, Balance, Address Line 1, Address Line 2/District/Neighborhood, Town/City, State/Province/Region/County/Territory/Prefecture/Republic, Zip/Postal Code, Country, Contact Phone Number, Subject, Note, Country Code, BalanceImpact
+
+# money coming into and out of Paypal account
+account1 Assets:Current Assets:Paypal:Cash
+
+# Sales
+if %BalanceImpact Credit
+ amount1 %Net
+ account2 Income:Sales
+ amount2 -%Gross
+ account3 Expenses:Payment Fees:Square
+ amount3 -%Fee
+
+# Transfer
+if %BalanceImpact Debit
+ amount1 %Gross
+ account2 Assets:Current Assets:Bank:Cash
+ amount2 -%Gross
