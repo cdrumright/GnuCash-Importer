@@ -8,6 +8,21 @@ import os.path
 import warnings
 from sqlalchemy import exc as sa_exc
 
+def findDuplicate(dupeBook, dupeTransaction):
+    for dupeSplit in dupeTransaction["splits"]:
+        for accountSplit in dupeSplit.account.splits:
+            # print(accountSplit.account.description)
+            # print(dupeTransaction["description"])
+            if (
+                accountSplit.transaction.description == dupeTransaction["description"] and
+                accountSplit.transaction.post_date == dupeTransaction["post_date"] and
+                accountSplit.value == dupeSplit.value
+               ):
+                print(accountSplit.transaction)
+                return True
+            else:
+                print("false")
+
 with warnings.catch_warnings():
     warnings.simplefilter("ignore", category=sa_exc.SAWarning)
 
@@ -300,6 +315,14 @@ with warnings.catch_warnings():
                         # account exists, build split
                         splits.append(Split(account=mybook.accounts(fullname=fieldRules["account" + str(n)]),
                                             value=Decimal(strippedAmount)))
+                transaction=dict(
+                    post_date=datetime.strptime(fieldRules["date"], dateFormat).date(),
+                    enter_date=today,
+                    currency=USD,
+                    description=fieldRules["description"],
+                    splits=splits)
+                duplicate = findDuplicate(mybook, transaction)
+
                 # build transaction
                 Transaction(
                     post_date=datetime.strptime(fieldRules["date"], dateFormat).date(),
@@ -309,6 +332,7 @@ with warnings.catch_warnings():
                     splits=splits)
                 # save the book
                 mybook.save()
+
                 importedCount = importedCount + 1
         print("Imported " + str(importedCount) + " transactions")
     
