@@ -8,20 +8,31 @@ import os.path
 import warnings
 from sqlalchemy import exc as sa_exc
 
-def findDuplicate(dupeBook, dupeTransaction):
-    for dupeSplit in dupeTransaction["splits"]:
-        for accountSplit in dupeSplit.account.splits:
-            # print(accountSplit.account.description)
-            # print(dupeTransaction["description"])
-            if (
-                accountSplit.transaction.description == dupeTransaction["description"] and
-                accountSplit.transaction.post_date == dupeTransaction["post_date"] and
-                accountSplit.value == dupeSplit.value
-               ):
-                print(accountSplit.transaction)
-                return True
+def findTransactions(searchAccount, searchCriteria):
+    # loop through splits in the search account
+    for searchSplit in searchAccount.splits:
+        searchMatch = True # initialize match state
+        # loop through the dictionary of search criteria, if one doesn't match then break because we are anding them
+        for searchKey, searchValue in searchCriteria.items():
+            if searchKey == "description":
+                if not (searchSplit.transaction.description == searchValue):
+                    searchMatch = False
+                    break
+            elif searchKey == "post_date":
+                if not (searchSplit.transaction.post_date == searchValue):
+                    searchMatch = False
+                    break
             else:
-                print("false")
+                # invalid search key
+                print("invalid search key")
+                searchMatch = False
+                break
+        if searchMatch:
+            print("Existing Transaction Found:")
+            print(searchSplit.transaction)
+            return True
+        else:
+            print("false")
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore", category=sa_exc.SAWarning)
@@ -321,7 +332,11 @@ with warnings.catch_warnings():
                     currency=USD,
                     description=fieldRules["description"],
                     splits=splits)
-                duplicate = findDuplicate(mybook, transaction)
+                for split in splits:
+                    criteria=dict(
+                            post_date=datetime.strptime(fieldRules["date"], dateFormat).date(),
+                            description=fieldRules["description"])
+                    duplicate = findTransactions(split.account, criteria)
 
                 # build transaction
                 Transaction(
