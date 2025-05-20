@@ -9,10 +9,15 @@ import warnings
 from sqlalchemy import exc as sa_exc
 
 def findTransactions(searchAccount, searchCriteria):
+    # initialize match list
+    matchList = []
     # loop through splits in the search account
     for searchSplit in searchAccount.splits:
         searchMatch = True # initialize match state
         # loop through the dictionary of search criteria, if one doesn't match then break because we are anding them
+        print(searchSplit)
+        print(searchSplit.transaction)
+        print(searchSplit.transaction.post_date)
         for searchKey, searchValue in searchCriteria.items():
             if searchKey == "description":
                 if not (searchSplit.transaction.description == searchValue):
@@ -28,11 +33,10 @@ def findTransactions(searchAccount, searchCriteria):
                 searchMatch = False
                 break
         if searchMatch:
-            print("Existing Transaction Found:")
-            print(searchSplit.transaction)
-            return True
-        else:
-            print("false")
+            # add found split to match list
+            matchList.append(searchSplit)
+    # return the list of matches
+    return matchList
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore", category=sa_exc.SAWarning)
@@ -78,6 +82,7 @@ with warnings.catch_warnings():
         importedCount = 0
         # for each line in csv file check rules for match
         for row in csvReader:
+            print(row)
             skipRow = False
             ifRule = False
             for line in ruleLines:
@@ -332,12 +337,6 @@ with warnings.catch_warnings():
                     currency=USD,
                     description=fieldRules["description"],
                     splits=splits)
-                for split in splits:
-                    criteria=dict(
-                            post_date=datetime.strptime(fieldRules["date"], dateFormat).date(),
-                            description=fieldRules["description"])
-                    duplicate = findTransactions(split.account, criteria)
-
                 # build transaction
                 Transaction(
                     post_date=datetime.strptime(fieldRules["date"], dateFormat).date(),
@@ -345,6 +344,16 @@ with warnings.catch_warnings():
                     currency=USD,
                     description=fieldRules["description"],
                     splits=splits)
+                # creating the splits before checking means they show up in the list, fix
+                for split in splits:
+                    criteria=dict(
+                            post_date=datetime.strptime(fieldRules["date"], dateFormat).date(),
+                            description=fieldRules["description"])
+                    duplicates = findTransactions(split.account, criteria)
+                    for duplicate in duplicates:
+                        print("Found existing transaction")
+                        print(duplicate.transaction)
+
                 # save the book
                 mybook.save()
 
