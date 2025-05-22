@@ -13,11 +13,15 @@ def findTransactions(searchAccount, searchCriteria):
     matchList = []
     # loop through splits in the search account
     for searchSplit in searchAccount.splits:
+        
+        print(searchSplit.transaction)
+
+        if not hasattr(searchSplit.transaction, 'post_date'):
+            # unused split, ignore
+            continue
+
         searchMatch = True # initialize match state
         # loop through the dictionary of search criteria, if one doesn't match then break because we are anding them
-        print(searchSplit)
-        print(searchSplit.transaction)
-        print(searchSplit.transaction.post_date)
         for searchKey, searchValue in searchCriteria.items():
             if searchKey == "description":
                 if not (searchSplit.transaction.description == searchValue):
@@ -82,7 +86,6 @@ with warnings.catch_warnings():
         importedCount = 0
         # for each line in csv file check rules for match
         for row in csvReader:
-            print(row)
             skipRow = False
             ifRule = False
             for line in ruleLines:
@@ -331,20 +334,8 @@ with warnings.catch_warnings():
                         # account exists, build split
                         splits.append(Split(account=mybook.accounts(fullname=fieldRules["account" + str(n)]),
                                             value=Decimal(strippedAmount)))
-                transaction=dict(
-                    post_date=datetime.strptime(fieldRules["date"], dateFormat).date(),
-                    enter_date=today,
-                    currency=USD,
-                    description=fieldRules["description"],
-                    splits=splits)
-                # build transaction
-                Transaction(
-                    post_date=datetime.strptime(fieldRules["date"], dateFormat).date(),
-                    enter_date=today,
-                    currency=USD,
-                    description=fieldRules["description"],
-                    splits=splits)
-                # creating the splits before checking means they show up in the list, fix
+
+                # check split accounts for potential duplicates of this transaction
                 for split in splits:
                     criteria=dict(
                             post_date=datetime.strptime(fieldRules["date"], dateFormat).date(),
@@ -353,6 +344,21 @@ with warnings.catch_warnings():
                     for duplicate in duplicates:
                         print("Found existing transaction")
                         print(duplicate.transaction)
+                
+                transaction=dict(
+                    post_date=datetime.strptime(fieldRules["date"], dateFormat).date(),
+                    enter_date=today,
+                    currency=USD,
+                    description=fieldRules["description"],
+                    splits=splits)
+
+                # build transaction
+                Transaction(
+                    post_date=datetime.strptime(fieldRules["date"], dateFormat).date(),
+                    enter_date=today,
+                    currency=USD,
+                    description=fieldRules["description"],
+                    splits=splits)
 
                 # save the book
                 mybook.save()
