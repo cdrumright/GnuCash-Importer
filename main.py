@@ -14,7 +14,7 @@ def findTransactions(searchAccount, searchCriteria):
     # loop through splits in the search account
     for searchSplit in searchAccount.splits:
         
-        print(searchSplit.transaction)
+        # print(searchSplit.transaction)
 
         if not hasattr(searchSplit.transaction, 'post_date'):
             # unused split, ignore
@@ -29,6 +29,14 @@ def findTransactions(searchAccount, searchCriteria):
                     break
             elif searchKey == "post_date":
                 if not (searchSplit.transaction.post_date == searchValue):
+                    searchMatch = False
+                    break
+            elif searchKey == "value":
+                if not (searchSplit.value == searchValue):
+                    searchMatch = False
+                    break
+            elif searchKey == "memo":
+                if not (searchSplit.memo == searchValue):
                     searchMatch = False
                     break
             else:
@@ -58,7 +66,12 @@ with warnings.catch_warnings():
     # configs
     # amountSymbols = ["+","-",",",".","(",")","0","1","2","3","4","5","6","7","8","9"]
     amountSymbols = "+-,.()0123456789"
-    
+
+    ruleDefaults = {
+            "match": "all",
+            "match-action": "ask"
+            }
+        
     # set  the rules file to open
     # rulePath = "test.rules"  # path of rules file
     # importPath = "test.csv"  # path to csv file
@@ -86,6 +99,7 @@ with warnings.catch_warnings():
         importedCount = 0
         # for each line in csv file check rules for match
         for row in csvReader:
+            fieldRules = ruleDefaults
             skipRow = False
             ifRule = False
             for line in ruleLines:
@@ -228,7 +242,6 @@ with warnings.catch_warnings():
                     dateFormat = line[12:].strip()  # save everything after the space
                 elif words[0] == "fields":  # set field mappings
                     fields = [x.strip() for x in line[6:].split(',')]
-                    fieldRules = {}
                     for index, field in enumerate(fields):
                         # map field positions to dictionary
                         if field:
@@ -336,14 +349,29 @@ with warnings.catch_warnings():
                                             value=Decimal(strippedAmount)))
 
                 # check split accounts for potential duplicates of this transaction
+                createTransaction = True
                 for split in splits:
                     criteria=dict(
                             post_date=datetime.strptime(fieldRules["date"], dateFormat).date(),
-                            description=fieldRules["description"])
+                            description=fieldRules["description"],
+                            value=split.value)
                     duplicates = findTransactions(split.account, criteria)
                     for duplicate in duplicates:
                         print("Found existing transaction")
                         print(duplicate.transaction)
+                        if fieldRules["match-action"] == "ask":
+                            answer = input("Create New (n), Skip (S)")
+                            if answer.lower() in "n":
+                                # create new transaction
+                                print("Transaction will be createed")
+                            elif answer.lower() in "s":
+                                # skip this row duplicate
+                                createTransaction = False
+                                continue
+                            else:
+                                #not a valid input
+                                print("not a valid input")
+                                continue
                 
                 transaction=dict(
                     post_date=datetime.strptime(fieldRules["date"], dateFormat).date(),
@@ -353,15 +381,16 @@ with warnings.catch_warnings():
                     splits=splits)
 
                 # build transaction
-                Transaction(
-                    post_date=datetime.strptime(fieldRules["date"], dateFormat).date(),
-                    enter_date=today,
-                    currency=USD,
-                    description=fieldRules["description"],
-                    splits=splits)
+                if createTransaction:
+                    Transaction(
+                        post_date=datetime.strptime(fieldRules["date"], dateFormat).date(),
+                        enter_date=today,
+                        currency=USD,
+                        description=fieldRules["description"],
+                        splits=splits)
 
-                # save the book
-                mybook.save()
+                    # save the book
+                    mybook.save()
 
                 importedCount = importedCount + 1
         print("Imported " + str(importedCount) + " transactions")
