@@ -67,6 +67,7 @@ with warnings.catch_warnings():
     # amountSymbols = ["+","-",",",".","(",")","0","1","2","3","4","5","6","7","8","9"]
     amountSymbols = "+-,.()0123456789"
 
+    fieldRules = {}
     ruleDefaults = {
             "match": "all",
             "match-action": "ask"
@@ -99,7 +100,7 @@ with warnings.catch_warnings():
         importedCount = 0
         # for each line in csv file check rules for match
         for row in csvReader:
-            fieldRules = ruleDefaults
+            fieldRules = ruleDefaults.copy()
             skipRow = False
             ifRule = False
             for line in ruleLines:
@@ -363,7 +364,7 @@ with warnings.catch_warnings():
                             answer = input("Create New (n), Skip (S)")
                             if answer.lower() in "n":
                                 # create new transaction
-                                print("Transaction will be createed")
+                                print("Transaction will be created")
                             elif answer.lower() in "s":
                                 # skip this row duplicate
                                 createTransaction = False
@@ -372,6 +373,8 @@ with warnings.catch_warnings():
                                 #not a valid input
                                 print("not a valid input")
                                 continue
+                        elif fieldRules["match-action"] == "skip":
+                            print("skipping")
                 
                 transaction=dict(
                     post_date=datetime.strptime(fieldRules["date"], dateFormat).date(),
@@ -391,6 +394,8 @@ with warnings.catch_warnings():
 
                     # save the book
                     mybook.save()
+                else:
+                    mybook.cancel()
 
                 importedCount = importedCount + 1
         print("Imported " + str(importedCount) + " transactions")
