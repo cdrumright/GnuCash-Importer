@@ -70,7 +70,8 @@ with warnings.catch_warnings():
     fieldRules = {}
     ruleDefaults = {
             "match": "all",
-            "match-action": "ask"
+            "match-action": "ask",
+            "description": ""
             }
         
     # set  the rules file to open
