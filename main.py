@@ -98,6 +98,7 @@ with warnings.catch_warnings():
         csvReader = csv.reader(importFile)
         # don't need to read headers since we use a rules file to skip headers
     
+        processedCount = 0
         importedCount = 0
         # for each line in csv file check rules for match
         for row in csvReader:
@@ -359,23 +360,28 @@ with warnings.catch_warnings():
                             value=split.value)
                     duplicates = findTransactions(split.account, criteria)
                     for duplicate in duplicates:
+                        # add more descriptions for comparing existing transactions
+                        # need to show all splits at once and ask for the whole transaction
                         print("Found existing transaction")
                         print(duplicate.transaction)
                         if fieldRules["match-action"] == "ask":
-                            answer = input("Create New (n), Skip (S)")
+                            answer = input("Create New (n), Skip (S)\n") or "s"
                             if answer.lower() in "n":
                                 # create new transaction
                                 print("Transaction will be created")
                             elif answer.lower() in "s":
                                 # skip this row duplicate
+                                print("Skipping\n")
                                 createTransaction = False
                                 continue
                             else:
-                                #not a valid input
-                                print("not a valid input")
+                                #assume default and skip
+                                print("Skipping\n")
+                                createTransaction = False
                                 continue
                         elif fieldRules["match-action"] == "skip":
-                            print("skipping")
+                            print("skipping\n")
+                            createTransaction = False
                 
                 transaction=dict(
                     post_date=datetime.strptime(fieldRules["date"], dateFormat).date(),
@@ -395,10 +401,12 @@ with warnings.catch_warnings():
 
                     # save the book
                     mybook.save()
+                    importedCount = importedCount + 1
                 else:
                     mybook.cancel()
 
-                importedCount = importedCount + 1
+                processedCount = processedCount + 1
+        print("Processed " + str(processedCount) + " rows")
         print("Imported " + str(importedCount) + " transactions")
     
     
