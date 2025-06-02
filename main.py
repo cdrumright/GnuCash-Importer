@@ -8,45 +8,47 @@ import os.path
 import warnings
 from sqlalchemy import exc as sa_exc
 
-def findTransactions(searchAccount, searchCriteria):
+def findTransactions(searchTransaction, searchCriteria):
     # initialize match list
     matchList = []
-    # loop through splits in the search account
-    for searchSplit in searchAccount.splits:
+    # loop through splits in the search transaction
+    for searchSplit in searchTransaction.splits:
         
-        # print(searchSplit.transaction)
+        # loop through splits in the account
+        for accountSplit in searchSplit.account.splits:
 
-        if not hasattr(searchSplit.transaction, 'post_date'):
-            # unused split, ignore
-            continue
+            # TODO check if split belongs to current transaction
 
-        searchMatch = True # initialize match state
-        # loop through the dictionary of search criteria, if one doesn't match then break because we are anding them
-        for searchKey, searchValue in searchCriteria.items():
-            if searchKey == "description":
-                if not (searchSplit.transaction.description == searchValue):
-                    searchMatch = False
-                    break
-            elif searchKey == "post_date":
-                if not (searchSplit.transaction.post_date == searchValue):
-                    searchMatch = False
-                    break
-            elif searchKey == "value":
-                if not (searchSplit.value == searchValue):
-                    searchMatch = False
-                    break
-            elif searchKey == "memo":
-                if not (searchSplit.memo == searchValue):
-                    searchMatch = False
-                    break
-            else:
-                # invalid search key
-                print("invalid search key")
-                searchMatch = False
-                break
-        if searchMatch:
-            # add found split to match list
-            matchList.append(searchSplit)
+
+            #check if split has post_date
+            if not hasattr(accountSplit.transaction, 'post_date'):
+                # unused split, ignore
+                continue
+
+            searchMatch = True # initialize match state
+            # loop through list of search criteria, if one doesn't match then break because we are anding them
+            for criteria in searchCriteria:
+                if criteria == "description" or "all":
+                    if not (searchSplit.transaction.description == accountSplit.transaction.description):
+                        searchMatch = False
+                        break
+                if criteria == "post_date" or "all":
+                    if not (searchSplit.transaction.post_date == accountSplit.transaction.post_date):
+                        searchMatch = False
+                        break
+                if criteria == "value" or "all":
+                    if not (searchSplit.value == accountSplit.value):
+                        searchMatch = False
+                        break
+                if criteria == "memo" or "all":
+                    if not (searchSplit.memo == accountSplit.memo):
+                        searchMatch = False
+                        break
+                # TODO add checking for invalid criteria
+            if searchMatch:
+                # TODO check if transaction in list already? 
+                # add transaction of found split to match list
+                matchList.append(accountSplit.transaction)
     # return the list of matches
     return matchList
 
@@ -346,60 +348,53 @@ with warnings.catch_warnings():
                                 # odd, leave 1 negative
                                 strippedAmount = strippedAmount.replace("-", '')
                                 strippedAmount = "-" + strippedAmount
+                        # TODO if memo n exists, add memo to split
     
                         # account exists, build split
                         splits.append(Split(account=mybook.accounts(fullname=fieldRules["account" + str(n)]),
                                             value=Decimal(strippedAmount)))
 
-                # check split accounts for potential duplicates of this transaction
-                createTransaction = True
-                for split in splits:
-                    criteria=dict(
-                            post_date=datetime.strptime(fieldRules["date"], dateFormat).date(),
-                            description=fieldRules["description"],
-                            value=split.value)
-                    duplicates = findTransactions(split.account, criteria)
-                    for duplicate in duplicates:
-                        # add more descriptions for comparing existing transactions
-                        # need to show all splits at once and ask for the whole transaction
-                        print("Found existing transaction")
-                        print(duplicate.transaction)
-                        if fieldRules["match-action"] == "ask":
-                            answer = input("Create New (n), Skip (S)\n") or "s"
-                            if answer.lower() in "n":
-                                # create new transaction
-                                print("Transaction will be created")
-                            elif answer.lower() in "s":
-                                # skip this row duplicate
-                                print("Skipping\n")
-                                createTransaction = False
-                                continue
-                            else:
-                                #assume default and skip
-                                print("Skipping\n")
-                                createTransaction = False
-                                continue
-                        elif fieldRules["match-action"] == "skip":
-                            print("skipping\n")
-                            createTransaction = False
-                
-                transaction=dict(
-                    post_date=datetime.strptime(fieldRules["date"], dateFormat).date(),
-                    enter_date=today,
-                    currency=USD,
-                    description=fieldRules["description"],
-                    splits=splits)
-
-                # build transaction
-                if createTransaction:
-                    Transaction(
+                # Create transaction
+                newTransaction = Transaction(
                         post_date=datetime.strptime(fieldRules["date"], dateFormat).date(),
                         enter_date=today,
                         currency=USD,
                         description=fieldRules["description"],
                         splits=splits)
-
-                    # save the book
+                
+                # check split accounts for potential duplicates of this transaction
+                createTransaction = True
+                    
+                duplicates = findTransactions(newTransaction, fieldRules["match"])
+                for duplicate in duplicates:
+                    # add more descriptions for comparing existing transactions
+                    # need to show all splits at once and ask for the whole transaction
+                    print("Found existing transaction")
+                    print("Date: " + str(duplicate.post_date))
+                    print("Description: " + duplicate.description)
+                    for dupeSplit in duplicate.splits:
+                        print(" " + dupeSplit.account.fullname + " " + str(dupeSplit.value) + " " + dupeSplit.memo)
+                    if fieldRules["match-action"] == "ask":
+                        answer = input("Create New (n), Skip (S)\n") or "s"
+                        if answer.lower() in "n":
+                            # create new transaction
+                            print("Transaction will be created")
+                        elif answer.lower() in "s":
+                            # skip this row duplicate
+                            print("Skipping\n")
+                            createTransaction = False
+                            continue
+                        else:
+                            #assume default and skip
+                            print("Skipping\n")
+                            createTransaction = False
+                            continue
+                    elif fieldRules["match-action"] == "skip":
+                        print("skipping\n")
+                        createTransaction = False
+                
+                # if okay, save transaction
+                if createTransaction:
                     mybook.save()
                     importedCount = importedCount + 1
                 else:
