@@ -29,19 +29,19 @@ def findTransactions(searchTransaction, searchCriteria):
             searchMatch = True # initialize match state
             # loop through list of search criteria, if one doesn't match then break because we are anding them
             for criteria in searchCriteria:
-                if criteria == "description" or "all":
+                if criteria in ["description", "all"]:
                     if not (searchSplit.transaction.description == accountSplit.transaction.description):
                         searchMatch = False
                         break
-                if criteria == "post_date" or "all":
+                if criteria in ["post_date", "all"]:
                     if not (searchSplit.transaction.post_date == accountSplit.transaction.post_date):
                         searchMatch = False
                         break
-                if criteria == "value" or "all":
+                if criteria in ["value", "all"]:
                     if not (searchSplit.value == accountSplit.value):
                         searchMatch = False
                         break
-                if criteria == "memo" or "all":
+                if criteria in ["memo", "all"]:
                     if not (searchSplit.memo == accountSplit.memo):
                         searchMatch = False
                         break
@@ -128,7 +128,7 @@ with warnings.catch_warnings():
                     if line.startswith(' '):
                         # check if matchers were true and apply rule
                         if isTrue:
-                            # add check for the word skip and skip the row
+                            # TODO add check for the word skip and skip the row
     
                             # get string after first word
                             valueString = line[len(words[0]) + 1:].strip()
@@ -374,8 +374,10 @@ with warnings.catch_warnings():
                 print("New Transaction")
                 printTransaction(newTransaction)
                 print("\nlooking for duplicates...")
-                # TODO add parsing for match criteria from rules file
-                duplicates = findTransactions(newTransaction, fieldRules["match"])
+
+                # convert match field into array
+                matchList = [x.strip() for x in fieldRules["match"].split(',')]
+                duplicates = findTransactions(newTransaction, matchList)
                 
                 createTransaction = True
                 for duplicate in duplicates:
