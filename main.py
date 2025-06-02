@@ -17,8 +17,9 @@ def findTransactions(searchTransaction, searchCriteria):
         # loop through splits in the account
         for accountSplit in searchSplit.account.splits:
 
-            # TODO check if split belongs to current transaction
-
+            # check if split belongs to current transaction
+            if accountSplit.transaction == searchTransaction:
+                continue
 
             #check if split has post_date
             if not hasattr(accountSplit.transaction, 'post_date'):
@@ -46,11 +47,18 @@ def findTransactions(searchTransaction, searchCriteria):
                         break
                 # TODO add checking for invalid criteria
             if searchMatch:
-                # TODO check if transaction in list already? 
-                # add transaction of found split to match list
-                matchList.append(accountSplit.transaction)
+                # check if transaction in list already? 
+                if not accountSplit.transaction in matchList:
+                    # add transaction of found split to match list
+                    matchList.append(accountSplit.transaction)
     # return the list of matches
     return matchList
+
+def printTransaction(pTransaction):
+    print("Date: " + str(pTransaction.post_date))
+    print("Description: " + pTransaction.description)
+    for pSplit in pTransaction.splits:
+        print(" " + pSplit.account.fullname + " " + str(pSplit.value) + " " + pSplit.memo)
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore", category=sa_exc.SAWarning)
@@ -363,17 +371,17 @@ with warnings.catch_warnings():
                         splits=splits)
                 
                 # check split accounts for potential duplicates of this transaction
-                createTransaction = True
-                    
+                print("New Transaction")
+                printTransaction(newTransaction)
+                print("\nlooking for duplicates...")
+                # TODO add parsing for match criteria from rules file
                 duplicates = findTransactions(newTransaction, fieldRules["match"])
+                
+                createTransaction = True
                 for duplicate in duplicates:
-                    # add more descriptions for comparing existing transactions
-                    # need to show all splits at once and ask for the whole transaction
                     print("Found existing transaction")
-                    print("Date: " + str(duplicate.post_date))
-                    print("Description: " + duplicate.description)
-                    for dupeSplit in duplicate.splits:
-                        print(" " + dupeSplit.account.fullname + " " + str(dupeSplit.value) + " " + dupeSplit.memo)
+                    printTransaction(duplicate)
+                    print("\n")
                     if fieldRules["match-action"] == "ask":
                         answer = input("Create New (n), Skip (S)\n") or "s"
                         if answer.lower() in "n":
@@ -403,5 +411,3 @@ with warnings.catch_warnings():
                 processedCount = processedCount + 1
         print("Processed " + str(processedCount) + " rows")
         print("Imported " + str(importedCount) + " transactions")
-    
-    
