@@ -8,6 +8,65 @@ import os.path
 import warnings
 from sqlalchemy import exc as sa_exc
 
+def findTransactions(searchTransaction, searchCriteria):
+    # initialize match list
+    matchList = []
+    # loop through splits in the search transaction
+    for searchSplit in searchTransaction.splits:
+        
+        # loop through splits in the account
+        for accountSplit in searchSplit.account.splits:
+
+            # check if split belongs to current transaction
+            if accountSplit.transaction == searchTransaction:
+                continue
+
+            #check if split has post_date
+            if not hasattr(accountSplit.transaction, 'post_date'):
+                # unused split, ignore
+                continue
+
+            searchMatch = True # initialize match state
+            # loop through list of search criteria, if one doesn't match then break because we are anding them
+            for criteria in searchCriteria:
+                criteriaMatched = False
+                if criteria in ["description", "all"]:
+                    criteriaMatched = True
+                    if not (searchSplit.transaction.description == accountSplit.transaction.description):
+                        searchMatch = False
+                        break
+                if criteria in ["post_date", "all"]:
+                    criteriaMatched = True
+                    if not (searchSplit.transaction.post_date == accountSplit.transaction.post_date):
+                        searchMatch = False
+                        break
+                if criteria in ["value", "all"]:
+                    criteriaMatched = True
+                    if not (searchSplit.value == accountSplit.value):
+                        searchMatch = False
+                        break
+                if criteria in ["memo", "all"]:
+                    criteriaMatched = True
+                    if not (searchSplit.memo == accountSplit.memo):
+                        searchMatch = False
+                        break
+                if not criteriaMatched:
+                    sys.exit("invalid match criteria: " + criteria)
+
+            if searchMatch:
+                # check if transaction in list already? 
+                if not accountSplit.transaction in matchList:
+                    # add transaction of found split to match list
+                    matchList.append(accountSplit.transaction)
+    # return the list of matches
+    return matchList
+
+def printTransaction(pTransaction):
+    print("Date: " + str(pTransaction.post_date))
+    print("Description: " + pTransaction.description)
+    for pSplit in pTransaction.splits:
+        print(" " + pSplit.account.fullname + " " + str(pSplit.value) + " " + pSplit.memo)
+
 with warnings.catch_warnings():
     warnings.simplefilter("ignore", category=sa_exc.SAWarning)
 
@@ -24,7 +83,14 @@ with warnings.catch_warnings():
     # configs
     # amountSymbols = ["+","-",",",".","(",")","0","1","2","3","4","5","6","7","8","9"]
     amountSymbols = "+-,.()0123456789"
-    
+
+    fieldRules = {}
+    ruleDefaults = {
+            "match": "all",
+            "match-action": "ask",
+            "description": ""
+            }
+        
     # set  the rules file to open
     # rulePath = "test.rules"  # path of rules file
     # importPath = "test.csv"  # path to csv file
@@ -49,9 +115,11 @@ with warnings.catch_warnings():
         csvReader = csv.reader(importFile)
         # don't need to read headers since we use a rules file to skip headers
     
+        processedCount = 0
         importedCount = 0
         # for each line in csv file check rules for match
         for row in csvReader:
+            fieldRules = ruleDefaults.copy()
             skipRow = False
             ifRule = False
             for line in ruleLines:
@@ -67,7 +135,10 @@ with warnings.catch_warnings():
                     if line.startswith(' '):
                         # check if matchers were true and apply rule
                         if isTrue:
-                            # add check for the word skip and skip the row
+                            # check for the word skip and skip the row
+                            if words[0] == "skip":
+                                skipRow = True
+                                break  # break out of for loop and skip this in the csv
     
                             # get string after first word
                             valueString = line[len(words[0]) + 1:].strip()
@@ -194,7 +265,6 @@ with warnings.catch_warnings():
                     dateFormat = line[12:].strip()  # save everything after the space
                 elif words[0] == "fields":  # set field mappings
                     fields = [x.strip() for x in line[6:].split(',')]
-                    fieldRules = {}
                     for index, field in enumerate(fields):
                         # map field positions to dictionary
                         if field:
@@ -296,20 +366,69 @@ with warnings.catch_warnings():
                                 # odd, leave 1 negative
                                 strippedAmount = strippedAmount.replace("-", '')
                                 strippedAmount = "-" + strippedAmount
+                        # TODO if memo n exists, add memo to split
     
                         # account exists, build split
                         splits.append(Split(account=mybook.accounts(fullname=fieldRules["account" + str(n)]),
                                             value=Decimal(strippedAmount)))
-                # build transaction
-                Transaction(
-                    post_date=datetime.strptime(fieldRules["date"], dateFormat).date(),
-                    enter_date=today,
-                    currency=USD,
-                    description=fieldRules["description"],
-                    splits=splits)
-                # save the book
-                mybook.save()
-                importedCount = importedCount + 1
+
+                # Create transaction
+                newTransaction = Transaction(
+                        post_date=datetime.strptime(fieldRules["date"], dateFormat).date(),
+                        enter_date=today,
+                        currency=USD,
+                        description=fieldRules["description"],
+                        splits=splits)
+                
+                # check split accounts for potential duplicates of this transaction
+                print("New Transaction")
+                printTransaction(newTransaction)
+                print("\nlooking for duplicates...")
+
+                # convert match field into array
+                matchList = [x.strip() for x in fieldRules["match"].split(',')]
+                duplicates = findTransactions(newTransaction, matchList)
+                
+                createTransaction = True
+                for duplicate in duplicates:
+                    print("Found existing transaction")
+                    printTransaction(duplicate)
+                    print("\n")
+                    if fieldRules["match-action"] == "ask":
+                        answer = input(" Skip (S), Replace (r), Create New (n)\n") or "s"
+                        if answer.lower() in "n":
+                            # create new transaction
+                            print("Transaction will be created")
+                        elif answer.lower() in "s":
+                            # skip this row duplicate
+                            print("Skipping\n")
+                            createTransaction = False
+                            continue
+                        elif answer.lower() in "r":
+                            # delete existing transaction and save new one
+                            mybook.delete(duplicate)
+                            mybook.flush()
+                        else:
+                            #assume default and skip
+                            print("Skipping\n")
+                            createTransaction = False
+                            continue
+                    elif fieldRules["match-action"] == "skip":
+                        print("skipping\n")
+                        createTransaction = False
+                    elif fieldRules["match-action"] == "replace":
+                        print("replacing existing transaction")
+                        # delete existing transaction and save new one
+                        mybook.delete(duplicate)
+                        mybook.flush()
+                
+                # if okay, save transaction
+                if createTransaction:
+                    mybook.save()
+                    importedCount = importedCount + 1
+                else:
+                    mybook.cancel()
+
+                processedCount = processedCount + 1
+        print("Processed " + str(processedCount) + " rows")
         print("Imported " + str(importedCount) + " transactions")
-    
-    
