@@ -135,7 +135,10 @@ with warnings.catch_warnings():
                     if line.startswith(' '):
                         # check if matchers were true and apply rule
                         if isTrue:
-                            # TODO add check for the word skip and skip the row
+                            # check for the word skip and skip the row
+                            if words[0] == "skip":
+                                skipRow = True
+                                break  # break out of for loop and skip this in the csv
     
                             # get string after first word
                             valueString = line[len(words[0]) + 1:].strip()
