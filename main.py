@@ -394,9 +394,8 @@ with warnings.catch_warnings():
                     print("Found existing transaction")
                     printTransaction(duplicate)
                     print("\n")
-                    # TODO add option for overwriting existing transaction
                     if fieldRules["match-action"] == "ask":
-                        answer = input("Create New (n), Skip (S)\n") or "s"
+                        answer = input(" Skip (S), Replace (r), Create New (n)\n") or "s"
                         if answer.lower() in "n":
                             # create new transaction
                             print("Transaction will be created")
@@ -405,6 +404,10 @@ with warnings.catch_warnings():
                             print("Skipping\n")
                             createTransaction = False
                             continue
+                        elif answer.lower() in "r":
+                            # delete existing transaction and save new one
+                            mybook.delete(duplicate)
+                            mybook.flush()
                         else:
                             #assume default and skip
                             print("Skipping\n")
@@ -413,6 +416,11 @@ with warnings.catch_warnings():
                     elif fieldRules["match-action"] == "skip":
                         print("skipping\n")
                         createTransaction = False
+                    elif fieldRules["match-action"] == "replace":
+                        print("replacing existing transaction")
+                        # delete existing transaction and save new one
+                        mybook.delete(duplicate)
+                        mybook.flush()
                 
                 # if okay, save transaction
                 if createTransaction:
