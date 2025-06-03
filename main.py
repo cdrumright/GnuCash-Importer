@@ -29,23 +29,30 @@ def findTransactions(searchTransaction, searchCriteria):
             searchMatch = True # initialize match state
             # loop through list of search criteria, if one doesn't match then break because we are anding them
             for criteria in searchCriteria:
+                criteriaMatched = False
                 if criteria in ["description", "all"]:
+                    criteriaMatched = True
                     if not (searchSplit.transaction.description == accountSplit.transaction.description):
                         searchMatch = False
                         break
                 if criteria in ["post_date", "all"]:
+                    criteriaMatched = True
                     if not (searchSplit.transaction.post_date == accountSplit.transaction.post_date):
                         searchMatch = False
                         break
                 if criteria in ["value", "all"]:
+                    criteriaMatched = True
                     if not (searchSplit.value == accountSplit.value):
                         searchMatch = False
                         break
                 if criteria in ["memo", "all"]:
+                    criteriaMatched = True
                     if not (searchSplit.memo == accountSplit.memo):
                         searchMatch = False
                         break
-                # TODO add checking for invalid criteria
+                if not criteriaMatched:
+                    sys.exit("invalid match criteria: " + criteria)
+
             if searchMatch:
                 # check if transaction in list already? 
                 if not accountSplit.transaction in matchList:
@@ -384,6 +391,7 @@ with warnings.catch_warnings():
                     print("Found existing transaction")
                     printTransaction(duplicate)
                     print("\n")
+                    # TODO add option for overwriting existing transaction
                     if fieldRules["match-action"] == "ask":
                         answer = input("Create New (n), Skip (S)\n") or "s"
                         if answer.lower() in "n":
