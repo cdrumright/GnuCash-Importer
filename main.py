@@ -71,7 +71,7 @@ with warnings.catch_warnings():
     warnings.simplefilter("ignore", category=sa_exc.SAWarning)
 
     for arg in sys.argv:
-        if ".csv" in arg:
+        if ".csv" in arg.lower():
             if os.path.isfile(arg):
                 importPath = arg  # path to csv file
         if ".gnucash" in arg:
@@ -351,6 +351,7 @@ with warnings.catch_warnings():
                 splits = []
                 # retrieve accounts, need to loop through accounts1-99
                 for n in range(1, 100):
+                    memoN = ""
                     if "account" + str(n) in fieldRules:
                         # strip currency and junk
                         strippedAmount = ''.join(c for c in fieldRules["amount" + str(n)] if c in amountSymbols)
@@ -366,11 +367,14 @@ with warnings.catch_warnings():
                                 # odd, leave 1 negative
                                 strippedAmount = strippedAmount.replace("-", '')
                                 strippedAmount = "-" + strippedAmount
-                        # TODO if memo n exists, add memo to split
+                        # if memo n exists, add memo to split
+                        if "memo" + str(n) in fieldRules:
+                            memoN = fieldRules["memo" + str(n)]
     
                         # account exists, build split
                         splits.append(Split(account=mybook.accounts(fullname=fieldRules["account" + str(n)]),
-                                            value=Decimal(strippedAmount)))
+                                            value=Decimal(strippedAmount),
+                                            memo=memoN))
 
                 # Create transaction
                 newTransaction = Transaction(
